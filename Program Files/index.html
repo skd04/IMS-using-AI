@@ -1,0 +1,1678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paper Adda OS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart DataLabels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    
+    <!-- Report Export Plugins (PDF & Excel) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .nav-active { background-color: #f3f4f6; color: #2563eb; font-weight: 600; border-left: 4px solid #2563eb; }
+        .hide { display: none !important; } 
+        /* Smooth fade in */
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* Toast */
+        #toast { transition: transform 0.3s ease-in-out; transform: translateY(-150%); }
+        #toast.show { transform: translateY(0); }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans h-screen flex overflow-hidden">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 rounded-md px-6 py-3 text-white font-semibold shadow-lg">
+        <span id="toast-msg">Message ekhane asbe</span>
+    </div>
+
+    <!-- Sidebar / Mobile Bottom Nav -->
+    <nav class="bg-white w-64 border-r border-gray-200 hidden md:flex flex-col h-full shadow-sm z-20">
+        <div class="p-6 border-b border-gray-200 flex items-center gap-3">
+            <div class="bg-blue-600 text-white p-2 rounded-lg"><i class="fas fa-store"></i></div>
+            <h1 class="text-xl font-bold text-gray-800">Paper Adda</h1>
+        </div>
+        <div class="flex-1 overflow-y-auto py-4">
+            <a href="#" onclick="switchTab('dashboard')" id="nav-dashboard" class="block px-6 py-3 text-gray-600 hover:bg-gray-50 nav-active"><i class="fas fa-chart-line w-6 text-center mr-2"></i> Dashboard</a>
+            <a href="#" onclick="switchTab('billing')" id="nav-billing" class="block px-6 py-3 text-gray-600 hover:bg-gray-50"><i class="fas fa-file-invoice-dollar w-6 text-center mr-2"></i> Bill Banan</a>
+            <a href="#" onclick="switchTab('purchases')" id="nav-purchases" class="block px-6 py-3 text-gray-600 hover:bg-gray-50"><i class="fas fa-cart-plus w-6 text-center mr-2"></i> Purchase Add Korun</a>
+            <a href="#" onclick="switchTab('stock')" id="nav-stock" class="block px-6 py-3 text-gray-600 hover:bg-gray-50"><i class="fas fa-boxes w-6 text-center mr-2"></i> Stock List</a>
+            <!-- UPDATED RECENT TRANSACTIONS TAB -->
+            <a href="#" onclick="switchTab('transactions')" id="nav-transactions" class="block px-6 py-3 text-gray-600 hover:bg-gray-50"><i class="fas fa-exchange-alt w-6 text-center mr-2"></i> Recent Transactions</a>
+            <a href="#" onclick="switchTab('reports')" id="nav-reports" class="block px-6 py-3 text-gray-600 hover:bg-gray-50"><i class="fas fa-file-alt w-6 text-center mr-2"></i> All Reports</a>
+        </div>
+        <div class="p-4 border-t text-xs text-center text-gray-400">
+            Auto-refresh active <i class="fas fa-sync fa-spin ml-1"></i>
+        </div>
+    </nav>
+
+    <!-- Mobile Nav (Bottom) -->
+    <nav class="md:hidden fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-2 pb-safe z-40 shadow-lg">
+        <button onclick="switchTab('dashboard')" class="flex flex-col items-center p-2 text-blue-600" id="mob-dashboard"><i class="fas fa-chart-line text-lg"></i><span class="text-[10px]">Dash</span></button>
+        <button onclick="switchTab('billing')" class="flex flex-col items-center p-2 text-gray-500" id="mob-billing"><i class="fas fa-file-invoice text-lg"></i><span class="text-[10px]">Bill</span></button>
+        <button onclick="switchTab('purchases')" class="flex flex-col items-center p-2 text-gray-500" id="mob-purchases"><i class="fas fa-plus-circle text-lg"></i><span class="text-[10px]">Buy</span></button>
+        <button onclick="switchTab('transactions')" class="flex flex-col items-center p-2 text-gray-500" id="mob-transactions"><i class="fas fa-exchange-alt text-lg"></i><span class="text-[10px]">Trans</span></button>
+        <button onclick="switchTab('reports')" class="flex flex-col items-center p-2 text-gray-500" id="mob-reports"><i class="fas fa-file-alt text-lg"></i><span class="text-[10px]">Report</span></button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto bg-gray-50 pb-20 md:pb-0 relative z-10">
+        
+        <!-- Loading Overlay -->
+        <div id="loader" class="absolute inset-0 bg-white bg-opacity-75 z-30 flex flex-col items-center justify-center hide">
+            <i class="fas fa-circle-notch fa-spin text-4xl text-blue-600 mb-4"></i>
+            <p class="text-gray-600 font-medium">Google Sheets er sathe Sync hocche...</p>
+        </div>
+
+        <div class="p-4 md:p-8 max-w-6xl mx-auto">
+            
+            <!-- Dashboard Tab -->
+            <section id="tab-dashboard" class="fade-in">
+                <!-- Dashboard Top Header + Filters -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <h2 class="text-2xl font-bold text-gray-800"><i class="fas fa-chart-pie mr-2 text-blue-500"></i> Babshar Obostha</h2>
+                    
+                    <div class="flex flex-wrap items-center gap-3">
+                        <label class="text-sm font-semibold text-gray-600">Somoy:</label>
+                        <select id="dash-filter-type" onchange="toggleDashFilter()" class="border border-gray-300 bg-gray-50 rounded-lg px-3 py-2 text-sm outline-none focus:ring-blue-500">
+                            <option value="lifetime">Sob Somoy (Lifetime)</option>
+                            <option value="fy">Financial Year (Bochor)</option>
+                            <option value="custom">Nijer Icchamoto Date</option>
+                        </select>
+                        
+                        <!-- Financial Year Dropdown -->
+                        <select id="dash-fy-select" onchange="applyDashFilter()" class="border border-gray-300 bg-gray-50 rounded-lg px-3 py-2 text-sm outline-none focus:ring-blue-500 hide">
+                            <option value="2024">2024-2025 (Apr - Mar)</option>
+                            <option value="2025">2025-2026 (Apr - Mar)</option>
+                            <option value="2026" selected>2026-2027 (Apr - Mar)</option>
+                            <option value="2027">2027-2028 (Apr - Mar)</option>
+                        </select>
+
+                        <!-- Custom Date Range -->
+                        <div id="dash-custom-dates" class="flex items-center gap-2 hide">
+                            <input type="date" id="dash-start" onchange="applyDashFilter()" class="border border-gray-300 bg-gray-50 rounded-lg px-2 py-1.5 text-sm">
+                            <span class="text-gray-400 text-sm">Theke</span>
+                            <input type="date" id="dash-end" onchange="applyDashFilter()" class="border border-gray-300 bg-gray-50 rounded-lg px-2 py-1.5 text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metrics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-blue-500">
+                        <p class="text-sm text-gray-500 font-medium mb-1">Mot Sale <span class="text-xs font-normal" id="label-sales-range">(Lifetime)</span></p>
+                        <h3 class="text-3xl font-bold text-gray-800">₹<span id="dash-total">0</span></h3>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-red-400">
+                        <p class="text-sm text-gray-500 font-medium mb-1">Mot Purchase <span class="text-xs font-normal" id="label-pur-range">(Lifetime)</span></p>
+                        <h3 class="text-3xl font-bold text-gray-800">₹<span id="dash-purchases">0</span></h3>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-green-500">
+                        <p class="text-sm text-gray-500 font-medium mb-1">Net Profit <span class="text-xs font-normal" id="label-profit-range">(Lifetime)</span></p>
+                        <h3 class="text-3xl font-bold text-gray-800">₹<span id="dash-profit">0</span></h3>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <!-- Main Chart (Line or Bar) -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-gray-700">Sales vs Purchase</h3>
+                            <select id="chart-view-type" onchange="applyDashFilter()" class="border border-gray-300 bg-blue-50 text-blue-700 font-semibold rounded-lg px-2 py-1 text-xs outline-none">
+                                <option value="both">Duto Eksathe (Column Chart)</option>
+                                <option value="sales">Sudhu Sales (Line Chart)</option>
+                                <option value="purchase">Sudhu Purchase (Line Chart)</option>
+                            </select>
+                        </div>
+                        <div style="position: relative; height: 250px;">
+                            <canvas id="salesLineChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Pie Chart -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-gray-700">Selling Percentage</h3>
+                            <select id="pie-chart-filter" onchange="applyDashFilter()" class="border border-gray-300 bg-gray-50 rounded-lg px-2 py-1 text-sm outline-none">
+                                <option value="category">Category Wise</option>
+                                <option value="product">Product Wise</option>
+                            </select>
+                        </div>
+                        <div style="position: relative; height: 250px;">
+                            <canvas id="salesPieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Low Stock Alert Section -->
+                <h3 class="text-lg font-bold mb-4 text-gray-700 mt-8"><i class="fas fa-exclamation-triangle text-red-500 mr-2"></i> Low Stock Alert</h3>
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 mb-4">
+                    <ul id="low-stock-list" class="divide-y divide-gray-100">
+                        <li class="p-4 text-gray-500 text-center">Stock data load hocche...</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Billing Tab -->
+            <section id="tab-billing" class="hide fade-in">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Notun Bill Banan</h2>
+                <div class="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-gray-100 max-w-2xl">
+                    <form id="billing-form" onsubmit="handleSale(event)">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Khunjun (Search) *</label>
+                            <div class="relative">
+                                <input type="text" id="bill-product-search" required class="w-full border-gray-300 rounded-lg shadow-sm p-3 border focus:ring-blue-500" placeholder="Naam likhe khunjun..." onfocus="showDefaultBillProducts()" onkeyup="filterBillProducts()" autocomplete="off">
+                                <input type="hidden" id="bill-product-id">
+                                <ul id="bill-product-list" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto hide mt-1"></ul>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Quantity & Unit *</label>
+                            <div class="flex">
+                                <input type="number" id="bill-qty" required step="0.01" min="0.01" class="w-2/3 border-gray-300 rounded-none rounded-l-lg shadow-sm p-3 border focus:ring-blue-500" oninput="updateBillCalculation()" placeholder="Quantity likhun">
+                                <input type="text" id="bill-unit" readonly class="w-1/3 bg-gray-50 border-gray-300 rounded-none rounded-r-lg shadow-sm p-3 border border-l-0 text-gray-600 text-center font-bold" placeholder="Unit">
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 rounded-lg p-4 mb-6 flex justify-between items-center border border-blue-100">
+                            <span class="text-blue-800 font-medium">Mot Taka:</span>
+                            <span class="text-2xl font-bold text-blue-900">₹<span id="bill-total">0.00</span></span>
+                        </div>
+
+                        <hr class="mb-4 border-gray-100">
+
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Customer Er Naam</label>
+                                <input type="text" id="bill-cust-name" placeholder="Optional" class="w-full border-gray-300 rounded-lg shadow-sm p-3 border">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
+                                <div class="flex">
+                                    <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">+91</span>
+                                    <input type="tel" id="bill-cust-phone" placeholder="10 digits" pattern="[0-9]{10}" class="flex-1 block w-full rounded-none rounded-r-lg border-gray-300 border p-3">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="btn-complete-sale" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-md flex justify-center items-center gap-2 transition-colors">
+                            <i class="fab fa-whatsapp text-xl"></i> Sale Complete Korun & Bill Pathan
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Purchase Tab -->
+            <section id="tab-purchases" class="hide fade-in">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Purchase Add Korun / Restock</h2>
+                <div class="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-gray-100 max-w-2xl">
+                    <form id="purchase-form" onsubmit="handlePurchase(event)">
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Status *</label>
+                            <select id="pur-type" class="w-full border-gray-300 rounded-lg shadow-sm p-3 border" onchange="togglePurchaseForm()">
+                                <option value="existing">Purano Product Restock Korun</option>
+                                <option value="new">Ekdom Notun Product Add Korun</option>
+                            </select>
+                        </div>
+
+                        <div id="pur-existing-group" class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Khunjun (Search) *</label>
+                            <div class="relative">
+                                <input type="text" id="pur-product-search" required class="w-full border-gray-300 rounded-lg shadow-sm p-3 border focus:ring-blue-500" placeholder="Naam likhe khunjun..." onfocus="showDefaultPurchaseProducts()" onkeyup="filterPurchaseProducts()" autocomplete="off">
+                                <input type="hidden" id="pur-product-id">
+                                <ul id="pur-product-list" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto hide mt-1"></ul>
+                            </div>
+                        </div>
+
+                        <div id="pur-new-group" class="hide space-y-4 mb-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                                <select id="pur-category" class="w-full border-gray-300 rounded-lg p-3 border">
+                                    <option value="Stationery">Stationery</option>
+                                    <option value="Snacks">Snacks</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Product Er Naam *</label>
+                                <input type="text" id="pur-name" class="w-full border-gray-300 rounded-lg p-3 border">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Unit Type *</label>
+                                <select id="pur-unit" class="w-full border-gray-300 rounded-lg p-3 border" onchange="document.getElementById('pur-display-unit').value = this.value">
+                                    <option value="PCS">PCS (Pieces)</option>
+                                    <option value="KGS">KGS (Kilograms)</option>
+                                    <option value="PKT">PKT (Packet)</option>
+                                    <option value="GUZ">GUZ (Guz)</option>
+                                    <option value="BOX">BOX (Box)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Quantity Koto Add Holo? *</label>
+                                <div class="flex">
+                                    <input type="number" id="pur-qty" required step="0.01" min="0.01" class="w-2/3 border-gray-300 rounded-none rounded-l-lg p-3 border" placeholder="Qty">
+                                    <input type="text" id="pur-display-unit" readonly class="w-1/3 bg-gray-50 border-gray-300 rounded-none rounded-r-lg p-3 border border-l-0 text-gray-600 text-center font-bold" placeholder="Unit">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Kena Daam/Unit *</label>
+                                <input type="number" id="pur-cost" required step="0.01" class="w-full border-gray-300 rounded-lg p-3 border">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Bikri Daam/Unit *</label>
+                                <input type="number" id="pur-sell" required step="0.01" class="w-full border-gray-300 rounded-lg p-3 border">
+                            </div>
+                        </div>
+
+                        <button type="submit" id="btn-save-purchase" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors">
+                            Purchase Entry Save Korun
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Stock Tab -->
+            <section id="tab-stock" class="hide fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Live Stock</h2>
+                    <div class="flex gap-2 items-center">
+                        <input type="text" id="search-stock" placeholder="Product khunjun..." class="border border-gray-300 rounded-lg px-4 py-2 text-sm w-40 sm:w-64 shadow-sm focus:ring-blue-500 focus:border-blue-500" onkeyup="filterStock()">
+                        <button onclick="openAddStockModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition flex items-center gap-1">
+                            <i class="fas fa-plus"></i> <span class="hidden sm:inline">Notun Item</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+                    <table class="w-full text-left border-collapse whitespace-nowrap min-w-[600px]">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
+                                <th class="p-4 font-semibold">ID</th>
+                                <th class="p-4 font-semibold">Naam</th>
+                                <th class="p-4 font-semibold">Category</th>
+                                <th class="p-4 font-semibold text-right">Current Stock</th>
+                                <th class="p-4 font-semibold text-right">Bikri Daam</th>
+                                <th class="p-4 font-semibold text-center sticky right-0 bg-gray-50 shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.1)]">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-table-body" class="divide-y divide-gray-100 text-sm">
+                            <!-- JS theke asbe -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- UPDATED: Recent Transactions Tab -->
+            <section id="tab-transactions" class="hide fade-in">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold text-gray-800">Recent Transactions</h2>
+                    
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Dropdown for toggle -->
+                        <select id="transaction-type-view" onchange="renderTransactions()" class="border border-gray-300 bg-white rounded-lg px-4 py-2 text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500 font-semibold text-gray-700">
+                            <option value="sales">Recent Sales</option>
+                            <option value="purchases">Recent Purchases</option>
+                        </select>
+
+                        <label class="text-sm text-gray-600 font-medium ml-2">Date Filter:</label>
+                        <input type="date" id="search-transaction-date" class="border border-gray-300 rounded-lg px-4 py-2 text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500" onchange="renderTransactions()">
+                        <button onclick="clearTransactionFilter()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm transition" title="Clear Filter"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+                    <table class="w-full text-left border-collapse whitespace-nowrap min-w-[700px]">
+                        <thead id="transactions-table-head">
+                            <!-- JS theke asbe -->
+                        </thead>
+                        <tbody id="transactions-table-body" class="divide-y divide-gray-100 text-sm">
+                            <!-- JS theke asbe -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Reports Tab -->
+            <section id="tab-reports" class="hide fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800"><i class="fas fa-file-export mr-2 text-blue-500"></i> Reports & Export</h2>
+                </div>
+
+                <!-- Report Filters -->
+                <div class="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-gray-100 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                        
+                        <!-- Report Type -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ki Report Dekhte Chan?</label>
+                            <select id="report-type" onchange="toggleReportFilters()" class="w-full border-gray-300 bg-gray-50 rounded-lg p-3 border focus:ring-blue-500 text-sm">
+                                <option value="sales">Sales Report</option>
+                                <option value="purchase">Purchase Report</option>
+                                <option value="stock">Stock Report</option>
+                            </select>
+                        </div>
+
+                        <!-- Date Type -->
+                        <div id="report-date-type-container">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Timeframe</label>
+                            <select id="report-date-type" onchange="toggleReportFilters()" class="w-full border-gray-300 bg-gray-50 rounded-lg p-3 border focus:ring-blue-500 text-sm">
+                                <option value="lifetime">Sob Somoy (Lifetime)</option>
+                                <option value="fy">Financial Year (Bochor)</option>
+                                <option value="custom">Nijer Icchamoto Date</option>
+                            </select>
+                        </div>
+
+                        <!-- FY or Custom Input -->
+                        <div id="report-date-input-container">
+                            <!-- FY Dropdown -->
+                            <div id="report-fy-div" class="hide">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Financial Year</label>
+                                <select id="report-fy-select" class="w-full border-gray-300 bg-gray-50 rounded-lg p-3 border focus:ring-blue-500 text-sm">
+                                    <option value="2024">2024-2025</option>
+                                    <option value="2025">2025-2026</option>
+                                    <option value="2026" selected>2026-2027</option>
+                                    <option value="2027">2027-2028</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Custom Dates -->
+                            <div id="report-custom-div" class="hide flex items-center gap-2">
+                                <div class="w-1/2">
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">Theke</label>
+                                    <input type="date" id="report-start" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2 text-sm border focus:ring-blue-500">
+                                </div>
+                                <div class="w-1/2">
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">Porjonto</label>
+                                    <input type="date" id="report-end" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2 text-sm border focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <div class="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <button onclick="generateReportPreview()" class="bg-gray-800 hover:bg-gray-900 text-white font-medium py-2.5 px-6 rounded-lg shadow transition w-full sm:w-auto flex items-center justify-center">
+                            <i class="fas fa-search mr-2"></i> Preview Data
+                        </button>
+
+                        <div class="flex gap-3 w-full sm:w-auto">
+                            <button onclick="downloadReport('pdf')" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2.5 px-4 rounded-lg shadow transition flex-1 sm:flex-none flex items-center justify-center">
+                                <i class="fas fa-file-pdf mr-2"></i> PDF
+                            </button>
+                            <button onclick="downloadReport('xlsx')" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 px-4 rounded-lg shadow transition flex-1 sm:flex-none flex items-center justify-center">
+                                <i class="fas fa-file-excel mr-2"></i> Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Report Table Preview -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+                    <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                        <h3 class="font-bold text-gray-700" id="report-table-title">Data Preview</h3>
+                        <span class="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-md" id="report-row-count">0 Rows</span>
+                    </div>
+                    <table class="w-full text-left border-collapse whitespace-nowrap min-w-[600px]" id="report-table">
+                        <thead id="report-table-head">
+                            <tr class="bg-gray-50 text-gray-600 text-sm border-b border-gray-200">
+                                <th class="p-4 font-semibold">Data ekhane dekhabe</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body" class="divide-y divide-gray-100 text-sm text-gray-700">
+                            <tr><td class="p-4 text-center text-gray-400">Upore filter theke "Preview Data" click korun.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+        
+        <!-- Edit Modal (Stock) -->
+        <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hide flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-md w-full relative">
+                <div class="flex justify-between items-center mb-6 border-b pb-3">
+                    <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-edit text-blue-600 mr-2"></i> Stock Edit Korun</h3>
+                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-red-600 transition bg-gray-100 hover:bg-red-50 rounded-full h-8 w-8 flex items-center justify-center">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+                <form id="edit-form" onsubmit="handleEditSubmit(event)">
+                    <input type="hidden" id="edit-id">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Category</label>
+                            <select id="edit-category" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                                <option value="Stationery">Stationery</option>
+                                <option value="Snacks">Snacks</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2 sm:col-span-1">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Product Er Naam</label>
+                            <input type="text" id="edit-name" required class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Kena Daam (₹)</label>
+                            <input type="number" id="edit-cost" required step="0.01" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Bikri Daam (₹)</label>
+                            <input type="number" id="edit-sell" required step="0.01" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Current Stock</label>
+                            <input type="number" id="edit-stock" required step="0.01" class="w-full border-gray-300 bg-blue-50 rounded-lg p-2.5 border focus:ring-blue-500 font-bold text-blue-800">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Unit</label>
+                            <select id="edit-unit" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                                <option value="PCS">PCS</option>
+                                <option value="KGS">KGS</option>
+                                <option value="PKT">PKT</option>
+                                <option value="GUZ">GUZ</option>
+                                <option value="BOX">BOX</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" id="btn-save-edit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                        <i class="fas fa-save"></i> Save Korun
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add New Stock Modal -->
+        <div id="add-stock-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hide flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-md w-full relative">
+                <div class="flex justify-between items-center mb-6 border-b pb-3">
+                    <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-plus-circle text-blue-600 mr-2"></i> Notun Item Add</h3>
+                    <button onclick="closeAddStockModal()" class="text-gray-400 hover:text-red-600 transition bg-gray-100 hover:bg-red-50 rounded-full h-8 w-8 flex items-center justify-center">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+                <form id="add-stock-form" onsubmit="handleAddStockSubmit(event)">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Category</label>
+                            <select id="add-category" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                                <option value="Stationery">Stationery</option>
+                                <option value="Snacks">Snacks</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2 sm:col-span-1">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Product Er Naam *</label>
+                            <input type="text" id="add-name" required class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Unit *</label>
+                            <select id="add-unit" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                                <option value="PCS">PCS</option>
+                                <option value="KGS">KGS</option>
+                                <option value="PKT">PKT</option>
+                                <option value="GUZ">GUZ</option>
+                                <option value="BOX">BOX</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Initial Stock</label>
+                            <input type="text" value="0 (Pore Add Hobe)" readonly class="w-full border-gray-300 bg-gray-200 text-gray-500 rounded-lg p-2.5 border outline-none font-medium">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Kena Daam (₹)</label>
+                            <input type="number" id="add-cost" step="0.01" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500" placeholder="0">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Bikri Daam (₹)</label>
+                            <input type="number" id="add-sell" step="0.01" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500" placeholder="0">
+                        </div>
+                    </div>
+                    <button type="submit" id="btn-add-stock" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                        <i class="fas fa-plus"></i> Add Korun
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit Modal (Sale) -->
+        <div id="edit-sale-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hide flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-md w-full relative">
+                <div class="flex justify-between items-center mb-6 border-b pb-3">
+                    <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-file-invoice text-blue-600 mr-2"></i> Sale Edit Korun</h3>
+                    <button onclick="closeEditSaleModal()" class="text-gray-400 hover:text-red-600 transition bg-gray-100 hover:bg-red-50 rounded-full h-8 w-8 flex items-center justify-center">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+                <form id="edit-sale-form" onsubmit="handleSaleEditSubmit(event)">
+                    <input type="hidden" id="edit-sale-id">
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Product</label>
+                        <input type="text" id="edit-sale-product" readonly class="w-full border-gray-300 bg-gray-100 text-gray-500 rounded-lg p-2.5 border outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Quantity</label>
+                            <input type="number" id="edit-sale-qty" required step="0.01" min="0.01" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Bikri Daam/Unit (₹)</label>
+                            <input type="number" id="edit-sale-price" required step="0.01" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Customer Naam</label>
+                            <input type="text" id="edit-sale-cust-name" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Customer Phone</label>
+                            <input type="tel" id="edit-sale-cust-phone" pattern="[0-9]{10}" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <button type="submit" id="btn-save-sale-edit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                        <i class="fas fa-save"></i> Sale Update Korun
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- NEW: Edit Modal (Purchase) -->
+        <div id="edit-purchase-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hide flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-md w-full relative">
+                <div class="flex justify-between items-center mb-6 border-b pb-3">
+                    <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-cart-plus text-blue-600 mr-2"></i> Purchase Edit Korun</h3>
+                    <button onclick="closeEditPurchaseModal()" class="text-gray-400 hover:text-red-600 transition bg-gray-100 hover:bg-red-50 rounded-full h-8 w-8 flex items-center justify-center">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+                <form id="edit-purchase-form" onsubmit="handlePurchaseEditSubmit(event)">
+                    <input type="hidden" id="edit-pur-id">
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Product</label>
+                        <input type="text" id="edit-pur-product" readonly class="w-full border-gray-300 bg-gray-100 text-gray-500 rounded-lg p-2.5 border outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Quantity</label>
+                            <input type="number" id="edit-pur-qty" required step="0.01" min="0.01" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Kena Daam/Unit (₹)</label>
+                            <input type="number" id="edit-pur-cost" required step="0.01" class="w-full border-gray-300 bg-gray-50 rounded-lg p-2.5 border focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <button type="submit" id="btn-save-purchase-edit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                        <i class="fas fa-save"></i> Purchase Update Korun
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // MOCK ENVIRONMENT (ETA COMMENT KORA HOLO ASHOL SCRIPT E KAJ KORAR JONNO)
+        if (typeof google === 'undefined') {
+            console.warn("Mock data running.");
+            window.google = {
+                script: {
+                    get run() {
+                        let successHandler = () => {}; let failureHandler = () => {};
+                        return {
+                            withSuccessHandler: function(cb) { successHandler = cb; return this; },
+                            withFailureHandler: function(cb) { failureHandler = cb; return this; },
+                            getAppData: function() {
+                                setTimeout(() => successHandler({
+                                    stockList: [
+                                        {productId: 'P001', category: 'Stationery', name: 'Notebook A4', costPrice: 30, sellingPrice: 50, unit: 'PCS', currentStock: 45},
+                                        {productId: 'P002', category: 'Snacks', name: 'Potato Chips', costPrice: 15, sellingPrice: 20, unit: 'PKT', currentStock: 3}, 
+                                        {productId: 'P003', category: 'Stationery', name: 'Blue Pen', costPrice: 5, sellingPrice: 10, unit: 'PCS', currentStock: 120}
+                                    ],
+                                    recentSales: [
+                                        {saleId: 'S001', date: '08-Apr-2026 10:00', rawDate: '2026-04-08', name: 'Potato Chips', category: 'Snacks', qty: 2, unit: 'PKT', price: 20, amount: 40, customer: 'Walk-in', customerPhone: ''},
+                                        {saleId: 'S002', date: '09-Apr-2026 14:15', rawDate: '2026-04-09', name: 'Blue Pen', category: 'Stationery', qty: 5, unit: 'PCS', price: 10, amount: 50, customer: 'Rohit', customerPhone: ''},
+                                    ],
+                                    allSales: [
+                                        {saleId: 'S001', date: '08-Apr-2026', rawDate: '2026-04-08', qty: 2, unit: 'PKT', price: 20, amount: 40, category: 'Snacks', name: 'Potato Chips', customer: 'Walk-in'},
+                                        {saleId: 'S002', date: '09-Apr-2026', rawDate: '2026-04-09', qty: 5, unit: 'PCS', price: 10, amount: 50, category: 'Stationery', name: 'Blue Pen', customer: 'Rohit'}
+                                    ],
+                                    allPurchases: [
+                                        {entryId: 'E001', date: '07-Apr-2026', rawDate: '2026-04-07', qty: 10, unit: 'PKT', costPrice: 15, name: 'Potato Chips', amount: 150},
+                                        {entryId: 'E002', date: '09-Apr-2026', rawDate: '2026-04-09', qty: 16, unit: 'PCS', costPrice: 5, name: 'Blue Pen', amount: 80}
+                                    ],
+                                    dashboard: { todaySales: 120, totalSales: 4500, netProfit: 1250 }
+                                }), 500);
+                            },
+                            processSale: function(payload) { setTimeout(() => successHandler({ success: true, saleId: 'S999', date: new Date().toLocaleDateString() }), 500); },
+                            processPurchase: function(payload) { setTimeout(() => successHandler({ success: true, entryId: 'E999' }), 500); },
+                            updateStockItem: function(payload) { setTimeout(() => successHandler({ success: true }), 500); },
+                            updateSaleItem: function(payload) { setTimeout(() => successHandler({ success: true }), 500); },
+                            deleteSaleItem: function(payload) { setTimeout(() => successHandler({ success: true }), 500); },
+                            updatePurchaseItem: function(payload) { setTimeout(() => successHandler({ success: true }), 500); },
+                            deletePurchaseItem: function(payload) { setTimeout(() => successHandler({ success: true }), 500); },
+                            deleteStockItem: function(payload) { setTimeout(() => successHandler({ success: true }), 500); }
+                        };
+                    }
+                }
+            };
+        }
+
+        // Register DataLabels plugin for charts globally
+        Chart.register(ChartDataLabels);
+
+        // App State
+        let appData = { stockList: [], recentSales: [], allSales: [], allPurchases: [], dashboard: { todaySales: 0, totalSales: 0, netProfit: 0 } };
+        let lineChartInstance = null;
+        let pieChartInstance = null;
+        let currentReportData = { head: [], body: [] }; // PDF/XLSX export er jonno store kora
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+            setInterval(fetchDataSilent, 60000); 
+            toggleReportFilters(); // Set report filter UI on load
+        });
+
+        function showLoader(show) { document.getElementById('loader').classList.toggle('hide', !show); }
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').textContent = message;
+            toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 rounded-md px-6 py-3 text-white font-semibold shadow-lg ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} show`;
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        function switchTab(tabId) {
+            ['dashboard', 'billing', 'purchases', 'stock', 'transactions', 'reports'].forEach(t => {
+                document.getElementById('tab-' + t).classList.add('hide');
+                let dNav = document.getElementById('nav-' + t);
+                if(dNav) { dNav.classList.remove('nav-active'); dNav.classList.add('text-gray-600'); }
+                let mNav = document.getElementById('mob-' + t);
+                if(mNav) { mNav.classList.remove('text-blue-600'); mNav.classList.add('text-gray-500'); }
+            });
+            document.getElementById('tab-' + tabId).classList.remove('hide');
+            let dNav = document.getElementById('nav-' + tabId);
+            if(dNav) { dNav.classList.add('nav-active'); dNav.classList.remove('text-gray-600'); }
+            let mNav = document.getElementById('mob-' + tabId);
+            if(mNav) { mNav.classList.add('text-blue-600'); mNav.classList.remove('text-gray-500'); }
+        }
+
+        function fetchData() {
+            showLoader(true);
+            google.script.run
+                .withSuccessHandler(res => { 
+                    appData = res; 
+                    try { renderApp(); } catch(e) { console.error("Render Error:", e); } 
+                    showLoader(false); 
+                })
+                .withFailureHandler(err => { showToast('Data load kora jayni', 'error'); showLoader(false); })
+                .getAppData();
+        }
+
+        function fetchDataSilent() {
+            google.script.run.withSuccessHandler(res => { 
+                appData = res; 
+                try { renderApp(); } catch(e) { console.error("Render Error:", e); } 
+            }).getAppData();
+        }
+
+        function renderApp() {
+            applyDashFilter(); 
+            populateSelects();
+            renderStock();
+            renderTransactions(); // New generalized function
+            renderLowStock(); // Low Stock Alert
+            generateReportPreview(); // Refresh report if open
+        }
+
+        // ---------- LOW STOCK ALERT ----------
+        function renderLowStock() {
+            const lowStockList = document.getElementById('low-stock-list');
+            if(!lowStockList) return;
+            lowStockList.innerHTML = '';
+            let lowCount = 0;
+
+            appData.stockList.forEach(item => {
+                if (item.currentStock <= 5) {
+                    lowCount++;
+                    lowStockList.innerHTML += `
+                        <li class="p-4 flex justify-between items-center hover:bg-gray-50">
+                            <div>
+                                <p class="font-semibold text-gray-800">${item.name}</p>
+                                <p class="text-xs text-gray-500">${item.category} | ID: ${item.productId}</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="bg-red-100 text-red-800 text-xs font-bold px-2 py-1 rounded">Stock: ${item.currentStock} ${item.unit}</span>
+                            </div>
+                        </li>
+                    `;
+                }
+            });
+
+            if (lowCount === 0) {
+                lowStockList.innerHTML = `<li class="p-4 text-green-600 text-center font-medium"><i class="fas fa-check-circle mr-2"></i>Shob stock bhalo obosthay ache!</li>`;
+            }
+        }
+
+        // ---------- DASHBOARD FILTERS & CHARTS ----------
+        function toggleDashFilter() {
+            const type = document.getElementById('dash-filter-type').value;
+            document.getElementById('dash-fy-select').classList.toggle('hide', type !== 'fy');
+            document.getElementById('dash-custom-dates').classList.toggle('hide', type !== 'custom');
+            applyDashFilter();
+        }
+
+        function applyDashFilter() {
+            const type = document.getElementById('dash-filter-type').value;
+            let startDate = null;
+            let endDate = null;
+            let rangeLabel = "(Lifetime)";
+
+            if (type === 'fy') {
+                const year = parseInt(document.getElementById('dash-fy-select').value);
+                startDate = `${year}-04-01`;
+                endDate = `${year + 1}-03-31`;
+                rangeLabel = `(FY ${year}-${year+1})`;
+            } else if (type === 'custom') {
+                startDate = document.getElementById('dash-start').value;
+                endDate = document.getElementById('dash-end').value;
+                rangeLabel = startDate && endDate ? `(${startDate} theke ${endDate})` : "(Sothik date din)";
+            }
+
+            // Update Labels
+            document.getElementById('label-sales-range').textContent = rangeLabel;
+            document.getElementById('label-pur-range').textContent = rangeLabel;
+            document.getElementById('label-profit-range').textContent = rangeLabel;
+
+            // Filter Arrays
+            const filteredSales = appData.allSales.filter(s => {
+                if(!startDate || !endDate) return true;
+                return s.rawDate >= startDate && s.rawDate <= endDate;
+            });
+            const filteredPurchases = appData.allPurchases.filter(p => {
+                if(!startDate || !endDate) return true;
+                return p.rawDate >= startDate && p.rawDate <= endDate;
+            });
+
+            // Calculate Metrics
+            let totalSalesAmount = filteredSales.reduce((sum, s) => sum + s.amount, 0);
+            let totalPurchaseAmount = filteredPurchases.reduce((sum, p) => sum + p.amount, 0);
+            let netProfitAmount = 0;
+
+            if (type === 'lifetime') {
+                netProfitAmount = appData.dashboard.netProfit || 0;
+            } else {
+                netProfitAmount = totalSalesAmount - totalPurchaseAmount;
+            }
+
+            // Update DOM
+            document.getElementById('dash-total').textContent = totalSalesAmount.toFixed(2);
+            document.getElementById('dash-purchases').textContent = totalPurchaseAmount.toFixed(2);
+            document.getElementById('dash-profit').textContent = netProfitAmount.toFixed(2);
+
+            renderCharts(filteredSales, filteredPurchases);
+        }
+
+        function renderCharts(filteredSales, filteredPurchases) {
+            const chartType = document.getElementById('chart-view-type').value;
+
+            // Prepare Data Grouped by Date
+            const dateSet = new Set([...filteredSales.map(s=>s.rawDate), ...filteredPurchases.map(p=>p.rawDate)]);
+            const sortedDates = Array.from(dateSet).sort();
+
+            const salesMap = {}; filteredSales.forEach(s => { salesMap[s.rawDate] = (salesMap[s.rawDate]||0) + s.amount; });
+            const purMap = {}; filteredPurchases.forEach(p => { purMap[p.rawDate] = (purMap[p.rawDate]||0) + p.amount; });
+
+            const sData = sortedDates.map(d => salesMap[d] || 0);
+            const pData = sortedDates.map(d => purMap[d] || 0);
+
+            // Configure Datalabels for Bar/Line Chart
+            const lineDataLabelConfig = {
+                display: true,
+                align: 'end',
+                anchor: 'end',
+                color: '#4b5563',
+                font: { size: 10, weight: 'bold' },
+                formatter: (value) => { return value > 0 ? '₹' + value : ''; }
+            };
+
+            const ctxLine = document.getElementById('salesLineChart').getContext('2d');
+            if (lineChartInstance) lineChartInstance.destroy();
+
+            if (chartType === 'both') {
+                lineChartInstance = new Chart(ctxLine, {
+                    type: 'bar',
+                    data: {
+                        labels: sortedDates.length > 0 ? sortedDates : ['No Data'],
+                        datasets: [
+                            { label: 'Sales (₹)', data: sData, backgroundColor: '#3b82f6', borderRadius: 4 },
+                            { label: 'Purchase (₹)', data: pData, backgroundColor: '#f87171', borderRadius: 4 }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { datalabels: lineDataLabelConfig } }
+                });
+            } else if (chartType === 'sales') {
+                lineChartInstance = new Chart(ctxLine, {
+                    type: 'line',
+                    data: {
+                        labels: sortedDates.length > 0 ? sortedDates : ['No Data'],
+                        datasets: [{ label: 'Sales (₹)', data: sData, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, fill: true, tension: 0.3 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { datalabels: lineDataLabelConfig } }
+                });
+            } else if (chartType === 'purchase') {
+                lineChartInstance = new Chart(ctxLine, {
+                    type: 'line',
+                    data: {
+                        labels: sortedDates.length > 0 ? sortedDates : ['No Data'],
+                        datasets: [{ label: 'Purchase (₹)', data: pData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: 0.3 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { datalabels: lineDataLabelConfig } }
+                });
+            }
+
+            // Pie Chart Data
+            const pieFilter = document.getElementById('pie-chart-filter').value;
+            const pieMap = {};
+            filteredSales.forEach(sale => {
+                const key = pieFilter === 'category' ? sale.category : sale.name;
+                if (!pieMap[key]) pieMap[key] = 0;
+                pieMap[key] += sale.amount;
+            });
+
+            const labels = Object.keys(pieMap);
+            const data = labels.map(l => pieMap[l]);
+            const bgColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b', '#0ea5e9'];
+
+            // Datalabels config for Pie chart (showing percentage)
+            const pieDataLabelConfig = {
+                color: '#ffffff',
+                font: { weight: 'bold', size: 12 },
+                formatter: (value, ctx) => {
+                    let sum = 0;
+                    let dataArr = ctx.chart.data.datasets[0].data;
+                    dataArr.map(data => { sum += data; });
+                    if (sum === 0) return '';
+                    let percentage = (value * 100 / sum).toFixed(1) + "%";
+                    return percentage;
+                }
+            };
+
+            const ctxPie = document.getElementById('salesPieChart').getContext('2d');
+            if (pieChartInstance) pieChartInstance.destroy();
+            pieChartInstance = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    labels: labels.length > 0 ? labels : ['No Data'],
+                    datasets: [{ data: data.length > 0 ? data : [1], backgroundColor: data.length > 0 ? bgColors.slice(0, labels.length) : ['#e2e8f0'], borderWidth: 1 }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { position: 'bottom' },
+                        datalabels: pieDataLabelConfig,
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.raw !== null && data.length > 0) {
+                                        label += '₹' + context.raw;
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    } 
+                }
+            });
+        }
+
+        // ---------- NEW REPORT SECTION LOGIC ----------
+        function toggleReportFilters() {
+            const reportType = document.getElementById('report-type').value;
+            const dateType = document.getElementById('report-date-type').value;
+            
+            const dateContainer = document.getElementById('report-date-type-container');
+            const inputContainer = document.getElementById('report-date-input-container');
+            const fyDiv = document.getElementById('report-fy-div');
+            const customDiv = document.getElementById('report-custom-div');
+
+            // Stock report e kono date lagbena
+            if (reportType === 'stock') {
+                dateContainer.classList.add('hide');
+                inputContainer.classList.add('hide');
+            } else {
+                dateContainer.classList.remove('hide');
+                inputContainer.classList.remove('hide');
+                
+                if (dateType === 'lifetime') {
+                    fyDiv.classList.add('hide');
+                    customDiv.classList.add('hide');
+                } else if (dateType === 'fy') {
+                    fyDiv.classList.remove('hide');
+                    customDiv.classList.add('hide');
+                } else {
+                    fyDiv.classList.add('hide');
+                    customDiv.classList.remove('hide');
+                }
+            }
+        }
+
+        function generateReportPreview() {
+            const reportType = document.getElementById('report-type').value;
+            const dateType = document.getElementById('report-date-type').value;
+            
+            let startDate = null;
+            let endDate = null;
+
+            if (reportType !== 'stock') {
+                if (dateType === 'fy') {
+                    const year = parseInt(document.getElementById('report-fy-select').value);
+                    startDate = `${year}-04-01`;
+                    endDate = `${year + 1}-03-31`;
+                } else if (dateType === 'custom') {
+                    startDate = document.getElementById('report-start').value;
+                    endDate = document.getElementById('report-end').value;
+                }
+            }
+
+            const thead = document.getElementById('report-table-head');
+            const tbody = document.getElementById('report-table-body');
+            document.getElementById('report-table-title').textContent = `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`;
+
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+            currentReportData = { head: [], body: [] };
+
+            if (reportType === 'sales') {
+                currentReportData.head = ['Date', 'Sale ID', 'Category', 'Product', 'Qty', 'Price', 'Total Amount', 'Customer'];
+                const filteredSales = appData.allSales.filter(s => {
+                    if(!startDate || !endDate) return true;
+                    return s.rawDate >= startDate && s.rawDate <= endDate;
+                });
+
+                let totalSales = 0;
+                filteredSales.forEach(s => {
+                    totalSales += s.amount;
+                    currentReportData.body.push([s.date || s.rawDate, s.saleId, s.category, s.name, `${s.qty} ${s.unit}`, `₹${s.price}`, `₹${s.amount.toFixed(2)}`, s.customer || 'Walk-in']);
+                });
+                
+                // Add totals row for PDF/Excel
+                if(filteredSales.length > 0) currentReportData.body.push(['', '', '', '', '', 'TOTAL:', `₹${totalSales.toFixed(2)}`, '']);
+                
+            } else if (reportType === 'purchase') {
+                currentReportData.head = ['Date', 'Entry ID', 'Product', 'Qty', 'Cost Price', 'Total Amount'];
+                const filteredPurchases = appData.allPurchases.filter(p => {
+                    if(!startDate || !endDate) return true;
+                    return p.rawDate >= startDate && p.rawDate <= endDate;
+                });
+
+                let totalPur = 0;
+                filteredPurchases.forEach(p => {
+                    totalPur += p.amount;
+                    currentReportData.body.push([p.date || p.rawDate, p.entryId, p.name, `${p.qty} ${p.unit}`, `₹${p.costPrice}`, `₹${p.amount.toFixed(2)}`]);
+                });
+
+                if(filteredPurchases.length > 0) currentReportData.body.push(['', '', '', '', 'TOTAL:', `₹${totalPur.toFixed(2)}`]);
+                
+            } else if (reportType === 'stock') {
+                currentReportData.head = ['Product ID', 'Category', 'Product Name', 'Cost Price', 'Selling Price', 'Current Stock'];
+                
+                let totalVal = 0;
+                appData.stockList.forEach(s => {
+                    let val = s.costPrice * s.currentStock;
+                    totalVal += val;
+                    currentReportData.body.push([s.productId, s.category, s.name, `₹${s.costPrice}`, `₹${s.sellingPrice}`, `${s.currentStock} ${s.unit}`]);
+                });
+            }
+
+            // Render Table
+            let headHTML = '<tr class="bg-blue-50 text-blue-800 text-sm border-b border-gray-200">';
+            currentReportData.head.forEach(h => { headHTML += `<th class="p-3 font-semibold">${h}</th>`; });
+            headHTML += '</tr>';
+            thead.innerHTML = headHTML;
+
+            if (currentReportData.body.length === 0 || (currentReportData.body.length === 1 && currentReportData.body[0].includes('TOTAL:'))) {
+                tbody.innerHTML = `<tr><td colspan="${currentReportData.head.length}" class="p-4 text-center text-gray-500">Kono data pawa jayni.</td></tr>`;
+                document.getElementById('report-row-count').textContent = `0 Rows`;
+            } else {
+                let bodyHTML = '';
+                // render all but last total row normally, total row specially
+                currentReportData.body.forEach((row, i) => {
+                    let isTotal = row.includes('TOTAL:');
+                    let trClass = isTotal ? 'bg-gray-100 font-bold' : 'hover:bg-gray-50';
+                    bodyHTML += `<tr class="${trClass} border-b border-gray-100">`;
+                    row.forEach(cell => { bodyHTML += `<td class="p-3">${cell}</td>`; });
+                    bodyHTML += '</tr>';
+                });
+                tbody.innerHTML = bodyHTML;
+                let actualRows = currentReportData.body[currentReportData.body.length-1].includes('TOTAL:') ? currentReportData.body.length - 1 : currentReportData.body.length;
+                document.getElementById('report-row-count').textContent = `${actualRows} Rows`;
+            }
+        }
+
+        function downloadReport(format) {
+            if (currentReportData.body.length === 0 || (currentReportData.body.length === 1 && currentReportData.body[0].includes('TOTAL:'))) {
+                showToast('Download korar moto kono data nei!', 'error');
+                return;
+            }
+
+            const title = document.getElementById('report-table-title').textContent;
+            
+            if (format === 'pdf') {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('landscape');
+                
+                doc.setFontSize(16);
+                doc.text(`Paper Adda - ${title}`, 14, 15);
+                doc.setFontSize(10);
+                doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 22);
+
+                doc.autoTable({
+                    startY: 28,
+                    head: [currentReportData.head],
+                    body: currentReportData.body,
+                    theme: 'grid',
+                    styles: { fontSize: 9 },
+                    headStyles: { fillColor: [37, 99, 235] }
+                });
+
+                doc.save(`PaperAdda_${title.replace(' ', '_')}.pdf`);
+                showToast('PDF Download hoyeche!');
+
+            } else if (format === 'xlsx') {
+                const wsData = [currentReportData.head, ...currentReportData.body];
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Report");
+                XLSX.writeFile(wb, `PaperAdda_${title.replace(' ', '_')}.xlsx`);
+                showToast('Excel file download hoyeche!');
+            }
+        }
+
+        // ---------- MISC LOGIC ----------
+        let sortedStockListCache = []; // Caching for search
+
+        function populateSelects() {
+            // Name jodi faka thake crash na kore tar jonno default value dewa holo
+            sortedStockListCache = [...appData.stockList].sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+        }
+
+        // NEW SEARCH FUNCTIONS FOR BILLING (SALES)
+        function showDefaultBillProducts() {
+            const list = document.getElementById('bill-product-list');
+            list.innerHTML = '';
+            
+            // Extract recently used product IDs from recentSales
+            let recentIds = [...new Set(appData.recentSales.map(s => s.productId))];
+            
+            let top3Items = [];
+            for (let id of recentIds) {
+                const prod = sortedStockListCache.find(p => p.productId === id);
+                if (prod && prod.currentStock > 0) { 
+                    top3Items.push(prod);
+                }
+                if (top3Items.length >= 3) break;
+            }
+            
+            // Jodi 3 te recent na thake, normal theke bhorbe
+            if (top3Items.length < 3) {
+                for (let item of sortedStockListCache) {
+                    if (!top3Items.find(p => p.productId === item.productId) && item.currentStock > 0) {
+                        top3Items.push(item);
+                    }
+                    if (top3Items.length >= 3) break;
+                }
+            }
+
+            if (top3Items.length === 0) {
+                list.innerHTML = `<li class="p-3 text-gray-500 text-sm italic">Stock e kono item nei</li>`;
+            } else {
+                top3Items.forEach(item => {
+                    const stockAlert = item.currentStock <= 5 ? `<span class="text-red-500 font-bold ml-1">(${item.currentStock} left)</span>` : `<span class="text-green-600 ml-1">(${item.currentStock} left)</span>`;
+                    list.innerHTML += `<li class="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 flex justify-between items-center" onmousedown="selectBillProduct('${item.productId}', '${item.name.replace(/'/g, "\\'")}')">
+                        <span>${item.name} <span class="text-xs text-gray-500">(${item.category})</span></span>
+                        <span class="text-sm font-semibold text-gray-700">₹${item.sellingPrice} ${stockAlert}</span>
+                    </li>`;
+                });
+            }
+            list.classList.remove('hide');
+        }
+
+        function filterBillProducts() {
+            const input = document.getElementById('bill-product-search').value.toLowerCase();
+            const list = document.getElementById('bill-product-list');
+            list.innerHTML = '';
+            
+            if (input.trim() === '') {
+                showDefaultBillProducts();
+                return;
+            }
+
+            const filtered = sortedStockListCache.filter(item => item.name.toLowerCase().includes(input) || item.category.toLowerCase().includes(input));
+            
+            if (filtered.length === 0) {
+                list.innerHTML = `<li class="p-3 text-gray-500 text-sm italic">Kono item pawa jayni</li>`;
+            } else {
+                filtered.forEach(item => {
+                    const stockAlert = item.currentStock <= 5 ? `<span class="text-red-500 font-bold ml-1">(${item.currentStock} left)</span>` : `<span class="text-green-600 ml-1">(${item.currentStock} left)</span>`;
+                    list.innerHTML += `<li class="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 flex justify-between items-center" onmousedown="selectBillProduct('${item.productId}', '${item.name.replace(/'/g, "\\'")}')">
+                        <span>${item.name} <span class="text-xs text-gray-500">(${item.category})</span></span>
+                        <span class="text-sm font-semibold text-gray-700">₹${item.sellingPrice} ${stockAlert}</span>
+                    </li>`;
+                });
+            }
+            list.classList.remove('hide');
+        }
+
+        function selectBillProduct(id, name) {
+            document.getElementById('bill-product-id').value = id;
+            document.getElementById('bill-product-search').value = name;
+            document.getElementById('bill-product-list').classList.add('hide');
+            updateBillCalculation();
+        }
+
+        // NEW SEARCH FUNCTIONS FOR PURCHASE
+        function showDefaultPurchaseProducts() {
+            const list = document.getElementById('pur-product-list');
+            list.innerHTML = '';
+            // Default 3 items show korbe
+            const top3 = sortedStockListCache.slice(0, 3);
+            top3.forEach(item => {
+                list.innerHTML += `<li class="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100" onmousedown="selectPurchaseProduct('${item.productId}', '${item.name.replace(/'/g, "\\'")}')">${item.name} <span class="text-xs text-gray-500">(${item.category})</span></li>`;
+            });
+            list.classList.remove('hide');
+        }
+
+        function filterPurchaseProducts() {
+            const input = document.getElementById('pur-product-search').value.toLowerCase();
+            const list = document.getElementById('pur-product-list');
+            list.innerHTML = '';
+            
+            if (input.trim() === '') {
+                showDefaultPurchaseProducts();
+                return;
+            }
+
+            // Flexible search logic
+            const filtered = sortedStockListCache.filter(item => item.name.toLowerCase().includes(input) || item.category.toLowerCase().includes(input));
+            
+            if (filtered.length === 0) {
+                list.innerHTML = `<li class="p-3 text-gray-500 text-sm italic">Kono item pawa jayni</li>`;
+            } else {
+                filtered.forEach(item => {
+                    list.innerHTML += `<li class="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100" onmousedown="selectPurchaseProduct('${item.productId}', '${item.name.replace(/'/g, "\\'")}')">${item.name} <span class="text-xs text-gray-500">(${item.category})</span></li>`;
+                });
+            }
+            list.classList.remove('hide');
+        }
+
+        function selectPurchaseProduct(id, name) {
+            document.getElementById('pur-product-id').value = id;
+            document.getElementById('pur-product-search').value = name;
+            document.getElementById('pur-product-list').classList.add('hide');
+            fillPurchaseDefaults();
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const purSearchInput = document.getElementById('pur-product-search');
+            const purList = document.getElementById('pur-product-list');
+            if (purSearchInput && purList && !purSearchInput.contains(event.target) && !purList.contains(event.target)) {
+                purList.classList.add('hide');
+            }
+
+            const billSearchInput = document.getElementById('bill-product-search');
+            const billList = document.getElementById('bill-product-list');
+            if (billSearchInput && billList && !billSearchInput.contains(event.target) && !billList.contains(event.target)) {
+                billList.classList.add('hide');
+            }
+        });
+
+        function renderStock() {
+            const tbody = document.getElementById('stock-table-body');
+            tbody.innerHTML = '';
+            
+            const sortedStock = [...appData.stockList].sort((a, b) => {
+                let catA = a.category || "";
+                let catB = b.category || "";
+                if (catA < catB) return -1;
+                if (catA > catB) return 1;
+                // Name crash fix
+                return (a.name || "").localeCompare(b.name || "");
+            });
+
+            let currentCategory = '';
+            sortedStock.forEach(item => {
+                if (item.category !== currentCategory) {
+                    currentCategory = item.category;
+                    tbody.innerHTML += `<tr class="bg-blue-50 border-y border-gray-200 category-header"><td colspan="6" class="p-3 font-bold text-blue-800 text-sm tracking-wide uppercase"><i class="fas fa-layer-group mr-2 opacity-70"></i> ${currentCategory}</td></tr>`;
+                }
+
+                const stockColor = item.currentStock <= 5 ? 'text-red-600 font-bold' : 'text-gray-800';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 item-row">
+                        <td class="p-4 border-b border-gray-100">${item.productId}</td>
+                        <td class="p-4 font-medium text-gray-800 item-name border-b border-gray-100">${item.name}</td>
+                        <td class="p-4 border-b border-gray-100"><span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs border border-gray-200">${item.category}</span></td>
+                        <td class="p-4 text-right border-b border-gray-100 ${stockColor}">${item.currentStock} ${item.unit}</td>
+                        <td class="p-4 text-right font-medium border-b border-gray-100 text-green-700">₹${item.sellingPrice}</td>
+                        <td class="p-4 text-center border-b border-gray-100 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="openEditModal('${item.productId}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 h-8 w-8 rounded-lg flex items-center justify-center transition-colors" title="Edit Stock">
+                                    <i class="fas fa-edit text-xs"></i>
+                                </button>
+                                <button onclick="deleteStock('${item.productId}')" class="bg-red-50 hover:bg-red-100 text-red-700 h-8 w-8 rounded-lg flex items-center justify-center transition-colors" title="Delete Stock">
+                                    <i class="fas fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function filterStock() {
+            const input = document.getElementById("search-stock").value.toUpperCase();
+            const rows = document.querySelectorAll("#stock-table-body .item-row");
+            const headers = document.querySelectorAll("#stock-table-body .category-header");
+
+            if(input) { headers.forEach(h => h.style.display = 'none'); } 
+            else { headers.forEach(h => h.style.display = ''); }
+
+            rows.forEach(row => {
+                const name = row.querySelector(".item-name").textContent.toUpperCase();
+                row.style.display = name.indexOf(input) > -1 ? "" : "none";
+            });
+        }
+
+        // ---------- TRANSACTIONS LOGIC (SALE + PURCHASE) ----------
+        function renderTransactions() {
+            const type = document.getElementById('transaction-type-view').value;
+            const filterDate = document.getElementById('search-transaction-date').value;
+            const thead = document.getElementById('transactions-table-head');
+            const tbody = document.getElementById('transactions-table-body');
+            
+            tbody.innerHTML = '';
+            
+            if (type === 'sales') {
+                thead.innerHTML = `
+                    <tr class="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
+                        <th class="p-4 font-semibold">Date</th>
+                        <th class="p-4 font-semibold">Sale ID</th>
+                        <th class="p-4 font-semibold">Item</th>
+                        <th class="p-4 font-semibold text-right">Qty</th>
+                        <th class="p-4 font-semibold text-right">Amount</th>
+                        <th class="p-4 font-semibold">Customer</th>
+                        <th class="p-4 font-semibold text-center sticky right-0 bg-gray-50 shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.1)]">Action</th>
+                    </tr>
+                `;
+                
+                appData.recentSales.forEach(sale => {
+                    if (filterDate && sale.rawDate !== filterDate) return;
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-4 text-xs text-gray-500 border-b border-gray-100">${sale.date}</td>
+                            <td class="p-4 text-xs border-b border-gray-100">${sale.saleId}</td>
+                            <td class="p-4 font-medium text-gray-800 border-b border-gray-100">${sale.name}</td>
+                            <td class="p-4 text-right border-b border-gray-100">${sale.qty} ${sale.unit}</td>
+                            <td class="p-4 text-right font-bold text-green-600 border-b border-gray-100">₹${sale.amount.toFixed(2)}</td>
+                            <td class="p-4 text-sm text-gray-600 border-b border-gray-100">${sale.customer}</td>
+                            <td class="p-4 text-center border-b border-gray-100 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]">
+                                <div class="flex items-center justify-center gap-2">
+                                    <button onclick="openEditSaleModal('${sale.saleId}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 h-8 w-8 rounded-lg flex items-center justify-center transition-colors" title="Edit Sale">
+                                        <i class="fas fa-edit text-xs"></i>
+                                    </button>
+                                    <button onclick="deleteSale('${sale.saleId}')" class="bg-red-50 hover:bg-red-100 text-red-700 h-8 w-8 rounded-lg flex items-center justify-center transition-colors" title="Delete Sale">
+                                        <i class="fas fa-trash text-xs"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>`;
+                });
+            } else {
+                thead.innerHTML = `
+                    <tr class="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
+                        <th class="p-4 font-semibold">Date</th>
+                        <th class="p-4 font-semibold">Entry ID</th>
+                        <th class="p-4 font-semibold">Item</th>
+                        <th class="p-4 font-semibold text-right">Qty</th>
+                        <th class="p-4 font-semibold text-right">Cost Price</th>
+                        <th class="p-4 font-semibold text-right">Total Amount</th>
+                        <th class="p-4 font-semibold text-center sticky right-0 bg-gray-50 shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.1)]">Action</th>
+                    </tr>
+                `;
+                
+                // Purchase gulo recent onujayi reverse korchi ebong limit 50 korchi
+                const recentPurchases = [...appData.allPurchases].reverse().slice(0, 50);
+                
+                recentPurchases.forEach(pur => {
+                    if (filterDate && pur.rawDate !== filterDate) return;
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-4 text-xs text-gray-500 border-b border-gray-100">${pur.date}</td>
+                            <td class="p-4 text-xs border-b border-gray-100">${pur.entryId}</td>
+                            <td class="p-4 font-medium text-gray-800 border-b border-gray-100">${pur.name}</td>
+                            <td class="p-4 text-right border-b border-gray-100">${pur.qty} ${pur.unit}</td>
+                            <td class="p-4 text-right text-gray-600 border-b border-gray-100">₹${pur.costPrice.toFixed(2)}</td>
+                            <td class="p-4 text-right font-bold text-blue-600 border-b border-gray-100">₹${pur.amount.toFixed(2)}</td>
+                            <td class="p-4 text-center border-b border-gray-100 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]">
+                                <div class="flex items-center justify-center gap-2">
+                                    <button onclick="openEditPurchaseModal('${pur.entryId}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 h-8 w-8 rounded-lg flex items-center justify-center transition-colors" title="Edit Purchase">
+                                        <i class="fas fa-edit text-xs"></i>
+                                    </button>
+                                    <button onclick="deletePurchase('${pur.entryId}')" class="bg-red-50 hover:bg-red-100 text-red-700 h-8 w-8 rounded-lg flex items-center justify-center transition-colors" title="Delete Purchase">
+                                        <i class="fas fa-trash text-xs"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>`;
+                });
+            }
+            
+            if(tbody.innerHTML === '') {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-500">Kono data khuje pawa jayni.</td></tr>`;
+            }
+        }
+
+        function clearTransactionFilter() {
+            document.getElementById('search-transaction-date').value = '';
+            renderTransactions();
+        }
+
+        // ---------- STOCK EDIT LOGIC ----------
+        function openEditModal(productId) {
+            const product = appData.stockList.find(p => p.productId === productId);
+            if(product) {
+                document.getElementById('edit-id').value = product.productId;
+                document.getElementById('edit-category').value = product.category;
+                document.getElementById('edit-name').value = product.name;
+                document.getElementById('edit-cost').value = product.costPrice;
+                document.getElementById('edit-sell').value = product.sellingPrice;
+                document.getElementById('edit-unit').value = product.unit;
+                document.getElementById('edit-stock').value = product.currentStock;
+                document.getElementById('edit-modal').classList.remove('hide');
+            }
+        }
+
+        function closeEditModal() { document.getElementById('edit-modal').classList.add('hide'); }
+
+        function handleEditSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-save-edit');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Save Hocche...';
+
+            const payload = {
+                productId: document.getElementById('edit-id').value, category: document.getElementById('edit-category').value,
+                name: document.getElementById('edit-name').value, costPrice: document.getElementById('edit-cost').value,
+                sellingPrice: document.getElementById('edit-sell').value, unit: document.getElementById('edit-unit').value,
+                currentStock: document.getElementById('edit-stock').value
+            };
+
+            google.script.run
+                .withSuccessHandler(res => {
+                    showToast('Stock Update Hoye Geche!');
+                    closeEditModal(); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save Korun';
+                    fetchDataSilent();
+                })
+                .withFailureHandler(err => { showToast(err.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save Korun'; })
+                .updateStockItem(payload);
+        }
+
+        // ADDED: Add New Stock Logic
+        function openAddStockModal() {
+            document.getElementById('add-stock-form').reset();
+            document.getElementById('add-stock-modal').classList.remove('hide');
+        }
+
+        function closeAddStockModal() { document.getElementById('add-stock-modal').classList.add('hide'); }
+
+        function handleAddStockSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-add-stock');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Add Hocche...';
+
+            const payload = {
+                category: document.getElementById('add-category').value,
+                name: document.getElementById('add-name').value,
+                costPrice: document.getElementById('add-cost').value || 0,
+                sellingPrice: document.getElementById('add-sell').value || 0,
+                unit: document.getElementById('add-unit').value
+            };
+
+            google.script.run
+                .withSuccessHandler(res => {
+                    showToast('Notun Item Stock e Add Hoyeche!');
+                    closeAddStockModal(); btn.disabled = false; btn.innerHTML = '<i class="fas fa-plus"></i> Add Korun';
+                    fetchDataSilent();
+                })
+                .withFailureHandler(err => { showToast(err.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-plus"></i> Add Korun'; })
+                .addNewStockItem(payload);
+        }
+
+        // ADDED: Stock delete logic
+        function deleteStock(productId) {
+            if(confirm("Apni ki sotti ei product ti stock theke delete korte chan?")) {
+                showLoader(true);
+                google.script.run
+                    .withSuccessHandler(res => { showToast('Stock Delete Hoye Geche!'); fetchDataSilent(); showLoader(false); })
+                    .withFailureHandler(err => { showToast(err.message, 'error'); showLoader(false); })
+                    .deleteStockItem(productId);
+            }
+        }
+
+        // ---------- BILLING LOGIC ----------
+        function updateBillCalculation() {
+            const prodId = document.getElementById('bill-product-id').value;
+            const totalSpan = document.getElementById('bill-total');
+            const unitSpan = document.getElementById('bill-unit');
+
+            if (!prodId) { totalSpan.textContent = '0.00'; unitSpan.value = ''; return; }
+            const product = appData.stockList.find(p => p.productId === prodId);
+            if (product) {
+                unitSpan.value = product.unit;
+                let qty = parseFloat(document.getElementById('bill-qty').value) || 0;
+                totalSpan.textContent = (qty * product.sellingPrice).toFixed(2);
+            }
+        }
+
+        function handleSale(e) {
+            e.preventDefault();
+            const prodId = document.getElementById('bill-product-id').value;
+            const qty = parseFloat(document.getElementById('bill-qty').value);
+            const custName = document.getElementById('bill-cust-name').value || 'Walk-in';
+            const custPhone = document.getElementById('bill-cust-phone').value;
+            
+            if (!prodId || document.getElementById('bill-product-search').value.trim() === '') { 
+                showToast("Sothik product list theke bachai korun", "error"); 
+                return; 
+            }
+            
+            const product = appData.stockList.find(p => p.productId === prodId);
+            
+            if (!product) { showToast("Doyakore ekta product bachai korun", "error"); return; }
+            if (qty > product.currentStock) { showToast(`Insufficient stock! Shudhumatro ${product.currentStock} ${product.unit} available ache.`, "error"); return; }
+
+            const totalAmt = (qty * product.sellingPrice).toFixed(2);
+            const btn = document.getElementById('btn-complete-sale');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Process Hocche...';
+
+            const payload = { productId: product.productId, category: product.category, name: product.name, qty: qty, unit: product.unit, price: product.sellingPrice, customerName: custName, customerPhone: custPhone };
+
+            google.script.run
+                .withSuccessHandler(res => {
+                    showToast('Sale Successful!'); 
+                    document.getElementById('billing-form').reset(); 
+                    document.getElementById('bill-product-id').value = '';
+                    document.getElementById('bill-product-search').value = '';
+                    document.getElementById('bill-total').textContent = '0.00';
+                    btn.disabled = false; btn.innerHTML = '<i class="fab fa-whatsapp text-xl"></i> Sale Complete Korun & Bill Pathan';
+                    fetchDataSilent();
+                    if (custPhone && custPhone.length === 10) { sendWhatsApp(product.name, qty, product.unit, product.sellingPrice, totalAmt, res.date, custPhone); }
+                })
+                .withFailureHandler(err => { showToast(err.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fab fa-whatsapp text-xl"></i> Sale Complete Korun & Bill Pathan'; })
+                .processSale(payload);
+        }
+
+        function sendWhatsApp(itemName, qty, unit, price, total, date, phone) {
+            const message = `🧾 *Paper Adda*\n------------------\nItem: ${itemName}\nQty: ${qty} ${unit}\nPrice: ₹${price} / ${unit}\n------------------\n*Mot Taka: ₹${total}*\nDate: ${date}\n\nDhonnobad, abar asben!`;
+            window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(message)}`, '_blank');
+        }
+
+        // ---------- PURCHASE LOGIC ----------
+        function togglePurchaseForm() {
+            const type = document.getElementById('pur-type').value;
+            if (type === 'new') {
+                document.getElementById('pur-existing-group').classList.add('hide'); document.getElementById('pur-new-group').classList.remove('hide');
+                document.getElementById('pur-product-search').removeAttribute('required'); document.getElementById('pur-name').setAttribute('required', 'true');
+                document.getElementById('pur-display-unit').value = document.getElementById('pur-unit').value;
+            } else {
+                document.getElementById('pur-existing-group').classList.remove('hide'); document.getElementById('pur-new-group').classList.add('hide');
+                document.getElementById('pur-product-search').setAttribute('required', 'true'); document.getElementById('pur-name').removeAttribute('required');
+                document.getElementById('pur-product-search').value = '';
+                document.getElementById('pur-product-id').value = '';
+                fillPurchaseDefaults();
+            }
+        }
+
+        function fillPurchaseDefaults() {
+            const prodId = document.getElementById('pur-product-id').value;
+            if(!prodId) { document.getElementById('pur-display-unit').value = ''; return; }
+            const product = appData.stockList.find(p => p.productId === prodId);
+            if(product) {
+                document.getElementById('pur-cost').value = product.costPrice; document.getElementById('pur-sell').value = product.sellingPrice;
+                document.getElementById('pur-display-unit').value = product.unit;
+            }
+        }
+
+        function handlePurchase(e) {
+            e.preventDefault();
+            const isNew = document.getElementById('pur-type').value === 'new';
+            const btn = document.getElementById('btn-save-purchase');
+            
+            let payload = { isNewProduct: isNew, qty: document.getElementById('pur-qty').value, costPrice: document.getElementById('pur-cost').value, sellingPrice: document.getElementById('pur-sell').value };
+
+            if (isNew) {
+                payload.category = document.getElementById('pur-category').value; payload.name = document.getElementById('pur-name').value; payload.unit = document.getElementById('pur-unit').value;
+            } else {
+                payload.productId = document.getElementById('pur-product-id').value;
+                if(!payload.productId || document.getElementById('pur-product-search').value.trim() === '') { showToast("Sothik product list theke bachai korun", "error"); return; }
+                const product = appData.stockList.find(p => p.productId === payload.productId);
+                payload.name = product.name; payload.unit = product.unit;
+            }
+
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Save Hocche...';
+
+            google.script.run
+                .withSuccessHandler(res => {
+                    showToast('Purchase Add Hoye Geche!'); document.getElementById('purchase-form').reset(); togglePurchaseForm(); 
+                    btn.disabled = false; btn.innerHTML = 'Purchase Entry Save Korun'; fetchDataSilent(); 
+                })
+                .withFailureHandler(err => { showToast(err.message, 'error'); btn.disabled = false; btn.innerHTML = 'Purchase Entry Save Korun'; })
+                .processPurchase(payload);
+        }
+
+        // ---------- SALE EDIT & DELETE LOGIC ----------
+        function openEditSaleModal(saleId) {
+            const sale = appData.recentSales.find(s => s.saleId === saleId);
+            if(sale) {
+                document.getElementById('edit-sale-id').value = sale.saleId; document.getElementById('edit-sale-product').value = sale.name;
+                document.getElementById('edit-sale-qty').value = sale.qty; document.getElementById('edit-sale-price').value = sale.price;
+                document.getElementById('edit-sale-cust-name').value = sale.customer !== 'Walk-in' ? sale.customer : '';
+                document.getElementById('edit-sale-cust-phone').value = sale.customerPhone || '';
+                document.getElementById('edit-sale-modal').classList.remove('hide');
+            }
+        }
+
+        function closeEditSaleModal() { document.getElementById('edit-sale-modal').classList.add('hide'); }
+
+        function handleSaleEditSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-save-sale-edit');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Update Hocche...';
+
+            const payload = {
+                saleId: document.getElementById('edit-sale-id').value, qty: document.getElementById('edit-sale-qty').value,
+                price: document.getElementById('edit-sale-price').value, customerName: document.getElementById('edit-sale-cust-name').value || 'Walk-in',
+                customerPhone: document.getElementById('edit-sale-cust-phone').value
+            };
+
+            google.script.run
+                .withSuccessHandler(res => { showToast('Sale Update Hoye Geche!'); closeEditSaleModal(); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Sale Update Korun'; fetchDataSilent(); })
+                .withFailureHandler(err => { showToast(err.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Sale Update Korun'; })
+                .updateSaleItem(payload);
+        }
+
+        function deleteSale(saleId) {
+            if(confirm("Apni ki sotti ei sale ti delete korte chan? Delete korle Stock theke automatic adjust hoye jabe.")) {
+                showLoader(true);
+                google.script.run
+                    .withSuccessHandler(res => { showToast('Sale Delete Hoye Geche!'); fetchDataSilent(); showLoader(false); })
+                    .withFailureHandler(err => { showToast(err.message, 'error'); showLoader(false); })
+                    .deleteSaleItem(saleId);
+            }
+        }
+
+        // ---------- PURCHASE EDIT & DELETE LOGIC ----------
+        function openEditPurchaseModal(entryId) {
+            const purchase = appData.allPurchases.find(p => p.entryId === entryId);
+            if(purchase) {
+                document.getElementById('edit-pur-id').value = purchase.entryId; 
+                document.getElementById('edit-pur-product').value = purchase.name;
+                document.getElementById('edit-pur-qty').value = purchase.qty; 
+                document.getElementById('edit-pur-cost').value = purchase.costPrice;
+                document.getElementById('edit-purchase-modal').classList.remove('hide');
+            }
+        }
+
+        function closeEditPurchaseModal() { document.getElementById('edit-purchase-modal').classList.add('hide'); }
+
+        function handlePurchaseEditSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-save-purchase-edit');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Update Hocche...';
+
+            const payload = {
+                entryId: document.getElementById('edit-pur-id').value, 
+                qty: document.getElementById('edit-pur-qty').value,
+                costPrice: document.getElementById('edit-pur-cost').value
+            };
+
+            google.script.run
+                .withSuccessHandler(res => { showToast('Purchase Update Hoye Geche!'); closeEditPurchaseModal(); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Purchase Update Korun'; fetchDataSilent(); })
+                .withFailureHandler(err => { showToast(err.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Purchase Update Korun'; })
+                .updatePurchaseItem(payload);
+        }
+
+        function deletePurchase(entryId) {
+            if(confirm("Apni ki sotti ei purchase ti delete korte chan? Delete korle Stock theke automatic minus hoye jabe.")) {
+                showLoader(true);
+                google.script.run
+                    .withSuccessHandler(res => { showToast('Purchase Delete Hoye Geche!'); fetchDataSilent(); showLoader(false); })
+                    .withFailureHandler(err => { showToast(err.message, 'error'); showLoader(false); })
+                    .deletePurchaseItem(entryId);
+            }
+        }
+
+    </script>
+</body>
+</html>
