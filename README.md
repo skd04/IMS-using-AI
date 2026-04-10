@@ -121,7 +121,8 @@ Check output.png
 
 ## 📝 License
 Free to use and modify
-#### Demo Link - Just Copy and Paste
+
+### Demo Link - Just Copy and Paste
 ``` ```
 
 ---
