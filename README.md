@@ -122,9 +122,6 @@ Check output.png
 ## 📝 License
 Free to use and modify
 
-### Demo Link - Just Copy and Paste
-``` ```
-
 ---
 
 ## ❤️ Author
