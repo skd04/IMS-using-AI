@@ -5,11 +5,6 @@ It uses Google Apps Script as backend and Google Sheets as database, making it c
 
 ---
 
-## 🚀 Live Demo
-🎥 Demo Video: (Add your video link here)
-
----
-
 ## ✨ Features
 
 ### 📊 Dashboard
