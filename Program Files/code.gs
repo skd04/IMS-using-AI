@@ -221,7 +221,8 @@ function processSale(saleData) {
     }
 
     const saleId = generateId(salesSheet, 'S', 0);
-    const dateObj = new Date();
+    // Custom date asle seta use korbe, noile ajker date
+    const dateObj = saleData.date ? new Date(saleData.date) : new Date();
     const totalAmount = parseFloat(saleData.qty) * parseFloat(saleData.price);
     
     appendDataToSheet(salesSheet, [
@@ -257,7 +258,8 @@ function processPurchase(data) {
     const stockSheet = ss.getSheetByName('Stock');
     
     let productId = data.productId;
-    const dateObj = new Date();
+    // Custom date asle seta use korbe, noile ajker date
+    const dateObj = data.date ? new Date(data.date) : new Date();
     const totalPurchaseAmount = parseFloat(data.qty) * parseFloat(data.costPrice);
     
     if (data.isNewProduct) {
