@@ -166,6 +166,12 @@
                 <h2 class="text-2xl font-bold mb-6 text-gray-800">Notun Bill Banan</h2>
                 <div class="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-gray-100 max-w-2xl">
                     <form id="billing-form" onsubmit="handleSale(event)">
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                            <input type="date" id="bill-date" required class="w-full border-gray-300 rounded-lg shadow-sm p-3 border focus:ring-blue-500">
+                        </div>
+
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Product Khunjun (Search) *</label>
                             <div class="relative">
@@ -217,6 +223,11 @@
                 <div class="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-gray-100 max-w-2xl">
                     <form id="purchase-form" onsubmit="handlePurchase(event)">
                         
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                            <input type="date" id="pur-date" required class="w-full border-gray-300 rounded-lg shadow-sm p-3 border focus:ring-blue-500">
+                        </div>
+
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Product Status *</label>
                             <select id="pur-type" class="w-full border-gray-300 rounded-lg shadow-sm p-3 border" onchange="togglePurchaseForm()">
@@ -689,7 +700,16 @@
             fetchData();
             setInterval(fetchDataSilent, 60000); 
             toggleReportFilters(); // Set report filter UI on load
+            setTodayDates(); // Initialize dates to today
         });
+
+        function setTodayDates() {
+            const today = new Date().toISOString().split('T')[0];
+            const billDateEl = document.getElementById('bill-date');
+            const purDateEl = document.getElementById('pur-date');
+            if(billDateEl) billDateEl.value = today;
+            if(purDateEl) purDateEl.value = today;
+        }
 
         function showLoader(show) { document.getElementById('loader').classList.toggle('hide', !show); }
         function showToast(message, type = 'success') {
@@ -1501,6 +1521,7 @@
             const qty = parseFloat(document.getElementById('bill-qty').value);
             const custName = document.getElementById('bill-cust-name').value || 'Walk-in';
             const custPhone = document.getElementById('bill-cust-phone').value;
+            const saleDate = document.getElementById('bill-date').value;
             
             if (!prodId || document.getElementById('bill-product-search').value.trim() === '') { 
                 showToast("Sothik product list theke bachai korun", "error"); 
@@ -1516,12 +1537,23 @@
             const btn = document.getElementById('btn-complete-sale');
             btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Process Hocche...';
 
-            const payload = { productId: product.productId, category: product.category, name: product.name, qty: qty, unit: product.unit, price: product.sellingPrice, customerName: custName, customerPhone: custPhone };
+            const payload = { 
+                productId: product.productId, 
+                category: product.category, 
+                name: product.name, 
+                qty: qty, 
+                unit: product.unit, 
+                price: product.sellingPrice, 
+                customerName: custName, 
+                customerPhone: custPhone,
+                date: saleDate 
+            };
 
             google.script.run
                 .withSuccessHandler(res => {
                     showToast('Sale Successful!'); 
                     document.getElementById('billing-form').reset(); 
+                    setTodayDates(); // Reset the date to today after form reset
                     document.getElementById('bill-product-id').value = '';
                     document.getElementById('bill-product-search').value = '';
                     document.getElementById('bill-total').textContent = '0.00';
@@ -1568,23 +1600,39 @@
             e.preventDefault();
             const isNew = document.getElementById('pur-type').value === 'new';
             const btn = document.getElementById('btn-save-purchase');
+            const purDate = document.getElementById('pur-date').value;
             
-            let payload = { isNewProduct: isNew, qty: document.getElementById('pur-qty').value, costPrice: document.getElementById('pur-cost').value, sellingPrice: document.getElementById('pur-sell').value };
+            let payload = { 
+                isNewProduct: isNew, 
+                qty: document.getElementById('pur-qty').value, 
+                costPrice: document.getElementById('pur-cost').value, 
+                sellingPrice: document.getElementById('pur-sell').value,
+                date: purDate 
+            };
 
             if (isNew) {
-                payload.category = document.getElementById('pur-category').value; payload.name = document.getElementById('pur-name').value; payload.unit = document.getElementById('pur-unit').value;
+                payload.category = document.getElementById('pur-category').value; 
+                payload.name = document.getElementById('pur-name').value; 
+                payload.unit = document.getElementById('pur-unit').value;
             } else {
                 payload.productId = document.getElementById('pur-product-id').value;
-                if(!payload.productId || document.getElementById('pur-product-search').value.trim() === '') { showToast("Sothik product list theke bachai korun", "error"); return; }
+                if(!payload.productId || document.getElementById('pur-product-search').value.trim() === '') { 
+                    showToast("Sothik product list theke bachai korun", "error"); 
+                    return; 
+                }
                 const product = appData.stockList.find(p => p.productId === payload.productId);
-                payload.name = product.name; payload.unit = product.unit;
+                payload.name = product.name; 
+                payload.unit = product.unit;
             }
 
             btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Save Hocche...';
 
             google.script.run
                 .withSuccessHandler(res => {
-                    showToast('Purchase Add Hoye Geche!'); document.getElementById('purchase-form').reset(); togglePurchaseForm(); 
+                    showToast('Purchase Add Hoye Geche!'); 
+                    document.getElementById('purchase-form').reset(); 
+                    setTodayDates(); // Reset the date to today after form reset
+                    togglePurchaseForm(); 
                     btn.disabled = false; btn.innerHTML = 'Purchase Entry Save Korun'; fetchDataSilent(); 
                 })
                 .withFailureHandler(err => { showToast(err.message, 'error'); btn.disabled = false; btn.innerHTML = 'Purchase Entry Save Korun'; })
